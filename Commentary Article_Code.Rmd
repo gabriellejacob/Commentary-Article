@@ -1,0 +1,504 @@
+---
+title: "Supplementary Code_Commentary Article"
+author: "Gabrielle Jacob"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Code
+
+## Packages 
+```{r, include=FALSE}
+install.packages(c("tidyverse", "asciiSetupReader", "Amelia", "jtools", "mice", "parameters", "performance", "reformulas", "TMB", "glmmTMB", "sjmisc", "insight", "ggmice", "ggplot2"))
+
+#install.packages("TMB", type = "source") #if you have issues installing
+#install.packages("glmmTMB", type = "source") #if you have issues installing
+
+library(tidyverse)
+library(asciiSetupReader)
+library(naniar)
+library(mice)
+library(Amelia)
+library(jtools)
+library(srvyr)
+library(mice)
+library(parameters)  # model summaries - comments from Merchant et al.      
+library(performance) # model fit indices, ICC - comments from Merchant et al. 
+library(glmmTMB)     # multilevel modelling - comments from Merchant et al. 
+library(sjmisc)
+library(insight)
+library(ggmice)
+library(ggplot2)
+```
+
+
+## Data Loading and Initial Processing
+
+### Loading YRBS Data 2019
+```{r, warning = FALSE}
+
+#Loaded Data using asciiSetupReader
+datam19_1 <- read_ascii_setup("2019/sadc_2019_state_a_m.dat", "2019/2019-sadc-spss-input-program.sps", 
+                           use_clean_names = FALSE) 
+datnz19_1 <- read_ascii_setup("2019/sadc_2019_state_n_z.dat", "2019/2019-sadc-spss-input-program.sps", 
+                           use_clean_names = FALSE) 
+
+#Kept original dataset for further manipulation 
+datam19 <- datam19_1 
+datnz19 <- datnz19_1
+
+```
+
+### Creating Dataset for Unweighted Analysis for YRBSS 2017 AND 2019
+```{r}
+
+#Selecting variables/columns of interest 
+datam19 <- datam19 %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+datnz19 <- datnz19 %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+#Dataset with all states - kept for potential  manipulation 
+yrbs19_1 <- bind_rows(datam19, datnz19) 
+
+
+#Cleaning dataset -> replacing periods with NA, changing names, and making
+#categorical variables factors and matching ref group to that of the study
+yrbs1719 <- yrbs19_1 %>% 
+  mutate(race7 =  na_if(race7, "."), 
+         sexid =  na_if(sexid, "."), 
+         sex = na_if(sex, ".")
+         ) %>% 
+  filter(year >= 2017) %>% 
+  rename(state = sitecode, 
+         raceid = race7,
+         considered_suicide = q26
+  )%>% 
+  mutate_at(c("raceid", "sex", "sexid", "considered_suicide"), as.factor)%>% 
+  mutate(raceid = fct_relevel(raceid, "White"), 
+         sex    = fct_relevel(sex, "Male"), 
+         sexid  = fct_relevel(sexid, "Heterosexual"))
+  
+
+#Checking cleaned dataset
+head(yrbs1719)
+str(yrbs1719)
+
+
+```
+
+### Loading YRBS Data 2021
+```{r, warning = FALSE}
+
+#Loaded Data using asciiSetupReader
+datad1 <- read_ascii_setup("2021/SADC_2021_State_a_d.dat", "2021/2021-SADC-SPSS-Input-Program.sps", 
+                           use_clean_names = FALSE)
+dateh1 <- read_ascii_setup("2021/SADC_2021_State_e_h.dat", "2021/2021-SADC-SPSS-Input-Program.sps", 
+                            use_clean_names = FALSE)
+datil1 <- read_ascii_setup("2021/SADC_2021_State_I_L.dat", "2021/2021-SADC-SPSS-Input-Program.sps", 
+                            use_clean_names = FALSE)
+datmp1 <- read_ascii_setup("2021/SADC_2021_State_Q_T.dat", "2021/2021-SADC-SPSS-Input-Program.sps", 
+                            use_clean_names = FALSE)
+datqt1 <- read_ascii_setup("2021/SADC_2021_State_M_P.dat", "2021/2021-SADC-SPSS-Input-Program.sps", 
+                            use_clean_names = FALSE)
+datuz1 <- read_ascii_setup("2021/SADC_2021_State_U_Z.dat", "2021/2021-SADC-SPSS-Input-Program.sps", 
+                            use_clean_names = FALSE)
+
+#Kept original dataset for further manipulation 
+datad <- datad1
+dateh <- dateh1 
+datil <- datil1 
+datmp <- datmp1
+datqt <- datqt1 
+datuz <- datuz1
+
+#Saving datasets 
+saveRDS(bind_rows(datad, dateh, datil, datmp, datqt, datuz), file = "yrbs_raw_bound.rds")
+
+
+```
+
+
+### Creating Dataset for Unweighted Analysis for YRBSS 2021
+```{r}
+
+#Selecting variables/columns of interest 
+datad <- datad %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+dateh <- dateh %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+datil <- datil %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+datmp <- datmp %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+
+datqt <- datqt %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+datuz <- datuz %>% 
+  select(sitecode, year, race7, sexid, q26, sex)
+
+
+yrbs21_1 <- bind_rows(datad,dateh, datil, datmp, datqt, datuz)
+
+
+#Cleaning dataset -> replacing periods with NA, changing names, and making
+#categorical variables factors and matching ref group to that of the study
+yrbs21 <- yrbs21_1 %>% 
+  mutate(race7 =  na_if(race7, "."), 
+         sexid =  na_if(sexid, "."), 
+         sex   = na_if(sex, ".")
+         ) %>% 
+  filter(year >= 2021) %>% 
+  rename(state = sitecode, 
+         raceid = race7,
+         considered_suicide = q26
+  )%>% 
+  mutate_at(c("raceid", "sex", "sexid", "considered_suicide"), as.factor)%>% 
+  mutate(raceid = fct_relevel(raceid, "White"), 
+         sex    = fct_relevel(sex, "Male"), 
+         sexid  = fct_relevel(sexid, "Heterosexual"))
+  
+
+#Checking cleaned dataset
+head(yrbs21)
+str(yrbs21)
+
+
+
+```
+
+### Creating Dataset for Unweighted Analysis for YRBSS 2017, 2019, 2021
+
+```{r}
+
+yrbs <- rbind(yrbs1719, yrbs21)
+
+head(yrbs)
+str(yrbs)
+
+saveRDS(yrbs, file = "yrbs_preimputation.rds")
+
+```
+
+## Missing Data
+
+### Confirm that dataset matches study and has similar missing data 
+```{r}
+
+#Filtering by year to check sample size and distribution for each year 
+
+#2017 
+yrbs17 <- yrbs1719 %>% 
+  filter(year == 2017)
+
+yrbs17 %>% 
+  mutate(complete = complete.cases(yrbs17)) %>% 
+  group_by(state) %>% 
+  summarize(
+    obs_state = n(),
+    complete = sum(complete),
+    across(c(considered_suicide, sex, raceid, sexid), ~ sum(is.na(.x))))
+
+#2019
+yrbs19 <- yrbs1719 %>% 
+  filter(year == 2019)
+
+yrbs19 %>% 
+  mutate(complete = complete.cases(yrbs19)) %>% 
+  group_by(state) %>% 
+  summarize(
+    obs_state = n(),
+    complete = sum(complete),
+    across(c(considered_suicide, sex, raceid, sexid), ~ sum(is.na(.x))))
+
+#2021 
+yrbs21 %>% 
+  mutate(complete = complete.cases(yrbs21)) %>% 
+  group_by(state) %>% 
+  summarize(
+    obs_state = n(),
+    complete = sum(complete),
+    across(c(considered_suicide, sex, raceid, sexid), ~ sum(is.na(.x))))
+
+#Total sample
+yrbs %>% 
+  mutate(complete = complete.cases(yrbs)) %>% 
+  group_by(state) %>% 
+  summarize(
+    obs_state = n(),
+    complete = sum(complete),
+    across(c(considered_suicide, sex, raceid, sexid), ~ sum(is.na(.x))))
+#Some inconsistences but probably due to data cleaning process
+#Missing values for outcome are the same but differ for covariates 
+
+
+#Double checking that the datasets match the S2 table sample sizes 
+
+#2017
+nrow(yrbs17) #matches table = 189723 
+sum(complete.cases(yrbs17)) #matches table = 134611 
+
+#how many states per survey 
+length(unique(yrbs17$state)) #38
+
+#2019
+nrow(yrbs19) #matches table = 182491 
+sum(complete.cases(yrbs19)) #matches table = 135558 
+
+length(unique(yrbs19$state)) #42
+
+#Same as yrbs but will check sums to see if the match the sample size in columns
+yrbs_check <- yrbs %>% 
+  mutate(complete = complete.cases(yrbs)) %>% 
+  group_by(state) %>% 
+  summarize(
+    obs_state = n(),
+    complete = sum(complete),
+    across(c(considered_suicide, sex, raceid, sexid), ~ sum(is.na(.x))))
+
+yrbs_check
+
+sum(yrbs_check$complete) #complete observations: 377362
+sum(yrbs_check$obs_state) #total observations: 520117
+sum(yrbs_check$considered_suicide) #68636
+sum(yrbs_check$sex) #5569 - differs
+sum(yrbs_check$raceid) #15013 - differs
+sum(yrbs_check$sexid) #66898 - differs 
+
+
+
+```
+
+### Heatmap for Unweighted Data 
+```{r}
+#2017 and 2019
+m_yrbs1719 <- yrbs %>% 
+  filter(year <= 2019) %>% 
+  select(- year, - state)
+
+missmap(
+  m_yrbs1719, 
+  main = "Missing Data Heatmap YRBSS Data 2017 and 2019", 
+  col  = c("royalblue", "lightgreen"), 
+  legend = T
+)
+
+#2021 
+m_yrbs21 <- yrbs %>% 
+  filter(year == 2021)
+
+
+missmap(
+  m_yrbs21, 
+  main = "Missing Data Heatmap YRBSS Data 2021", 
+  col  = c("royalblue", "lightgreen"), 
+  legend = T
+)
+
+m_yrbs <- yrbs %>% 
+  select(- year, - state)
+
+#Combo 
+missmap(
+  m_yrbs, 
+  main = "Missing Data Heatmap YRBSS Data Combo", 
+  col  = c("royalblue", "lightgreen"), 
+  legend = T
+)
+```
+
+
+### Missing Data Barchart Unweighted
+```{r}
+gg_miss_upset(yrbs)
+```
+
+### MCAR Test Unweighted 
+```{r}
+
+
+#Little's Test --> reject null hypothesis that data is MCAR so we know that data is MAR OR MNAR
+mcar_test(yrbs)
+
+```
+
+### MAR Test Unweighted  - Outcome 
+```{r}
+
+
+yrbsmiss <- yrbs
+
+#Creating a column for missing values / NA = 1, observed = 0
+yrbsmiss$y.miss = ifelse(is.na(yrbsmiss$considered_suicide), 1, 0)
+
+colnames(yrbsmiss)
+table(yrbsmiss$y.miss) 
+
+#Running logisic regression to see if covariates can explain the missingness
+glm1 <- glm(y.miss ~ sex + raceid + sexid, data = yrbsmiss, family = binomial(link = "logit"))
+
+summ(glm1, exp = TRUE)
+```
+
+### MAR Test Unweighted  - Covariates 
+```{r}
+
+#Creating a column for missing values / NA = 1, observed = 0
+yrbsmiss$raceid_m <- as.numeric(is.na(yrbsmiss$raceid))
+  
+yrbsmiss$sex_m <- as.numeric(is.na(yrbsmiss$sex))
+
+yrbsmiss$sexid_m <- as.numeric(is.na(yrbsmiss$sexid))
+
+
+#Running logisic regression to see if the other variables can explain the missingness
+glm2 <- glm(raceid_m ~ sex + sexid + considered_suicide, data = yrbsmiss, family = binomial(link = "logit"))
+glm2
+
+glm3 <- glm(sex_m ~ raceid + sexid + considered_suicide, data = yrbsmiss, family = binomial(link = "logit"))
+
+glm4 <- glm(sexid_m ~ raceid + sex + considered_suicide, data = yrbsmiss, family = binomial(link = "logit"))
+
+
+summ(glm2, exp = TRUE)
+summ(glm3, exp = TRUE)
+summ(glm4, exp = TRUE)
+
+```
+
+## MAIHDA Analysis
+
+### MICE 
+```{r}
+
+library(mice)
+str(yrbs)
+yrbs_imputted <- mice(yrbs, m = 5, seed = 123)
+
+#imputted data includes 3 mil observations now 
+head(yrbs_imputted)
+
+#Save file 
+saveRDS(yrbs_imputted, file = "yrbs_imputted.rds")
+
+#Going to create a dataset with a random sample of 520,000 to check diagnostics 
+
+#Quality check --> seems to be good
+plot(yrbs_imputted)
+
+#Proportions --> dataset too big, was difficult to do any other diagnostic check --> just shows stability of imputations 
+
+round(prop.table(table(complete(yrbs_imputted, "long")$considered_suicide, complete(yrbs_imputted, "long")$.imp), margin = 2), digits = 2)
+
+round(prop.table(table(complete(yrbs_imputted, "long")$sexid, complete(yrbs_imputted, "long")$.imp), margin = 2), digits = 2)
+
+round(prop.table(table(complete(yrbs_imputted, "long")$raceid, complete(yrbs_imputted, "long")$.imp), margin = 2), digits = 2)
+
+round(prop.table(table(complete(yrbs_imputted, "long")$sex, complete(yrbs_imputted, "long")$.imp), margin = 2), digits = 2)
+
+#Similarity with preimputation dataset --> was difficult to plot so shown numerically 
+round(prop.table(table(complete(yrbs_imputted, "long")$considered_suicide,  complete(yrbs_imputted, "long")$sexid)), digits = 2)
+round(prop.table(table(yrbs$considered_suicide, yrbs$sexid)), digits = 2)
+
+round(prop.table(table(complete(yrbs_imputted, "long")$considered_suicide,  complete(yrbs_imputted, "long")$raceid)), digits = 2)
+round(prop.table(table(yrbs$considered_suicide, yrbs$raceid)), digits = 2)
+
+round(prop.table(table(complete(yrbs_imputted, "long")$considered_suicide,  complete(yrbs_imputted, "long")$sex)), digits = 2)
+round(prop.table(table(yrbs$considered_suicide, yrbs$sex)), digits = 2)
+
+yrbs_imputted <- readRDS("yrbs_imputted.rds")
+
+
+```
+
+
+### MAIHDA ANALYSIS 
+
+```{r}
+
+#Null Model --> code from Merchant et al. 
+m_null <- with(yrbs_imputted, 
+               glmmTMB(considered_suicide ~ 1 + ( 1 | sex:raceid:sexid), data = environment (), family=binomial(link='logit')))
+
+
+icc1 <- sapply(m_null$analyses, icc)
+
+icc1
+
+#unadjusted ICC
+mean(0.1019387, 0.10180940, 0994824, 0.102079, 0.1017482)*100
+
+#Fixed effects 
+ 
+ m_2 <- with(yrbs_imputted2_m, 
+               glmmTMB(considered_suicide ~  1 +  prepost2020 + ( 1 | sex:raceid:sexid), data = environment (), family=binomial(link='logit')))
+
+
+icc2 <- sapply(m_2$analyses, icc)
+
+icc2
+
+#unadjusted ICC
+mean(.1008932, 0.1007225, 0.09838583, 0.1010178, 0.1005722)*100
+
+#Random effects model 
+
+ m_3 <- with(yrbs_imputted2_m, 
+               glmmTMB(considered_suicide ~ 1 +  prepost2020 + ( prepost2020| sex:raceid:sexid), data = environment (), family=binomial(link='logit')))
+
+
+icc3 <- sapply(m_3$analyses, icc)
+
+#adjusted ICC
+iccadj_m3 <- mean(0.1010607, 0.1006816, 0.0989893, 0.10115, .1006593)*100
+
+#unadjusted
+iccunadj_m3 <- mean(0.1010567, 0.1006761, 0.09898668, 0.1011461, 0.1006553)*100
+
+
+#Crude Relative bias
+((.11 - .10 )/ .10)*100
+
+
+#Get variance to calculate year specific ICC
+
+m3var <- sapply(m_3$analyses, get_variance)
+
+#Calculate mean of the imputed values 
+var.residual <- mean(3.289868, 3.289868, 3.289868, 3.289868, 3.289868) 
+
+#rho 
+cor.slope_intercept <- mean(-0.2186674, -0.2405494, -0.1253853, -0.1742017, -0.2369491)
+
+#random intercept variance
+var.intercept <- mean(0.3810894, 0.3808541, 0.3655358, 0.3777736, 0.3805615)  
+
+#random slope variance
+var.slope <- mean (0.007185732, 0.00660776, 0.006515971, 0.005925384, 0.006718819)
+
+#Obtain covariance 
+#rho * sd(var.slope) + sd(var.intercept)
+#to get standard deviation take the square root
+covariance <- cor.slope_intercept * sqrt(var.slope) * sqrt(var.intercept)
+
+#Calculate unexplained between-stratum variance
+var_unex <- var.slope + covariance + var.intercept
+
+#calculate year specific ICC
+post2020icc <- (var_unex / (var_unex + 3.29))*100
+pre2020icc <- (var.intercept / (var.intercept + 3.29))* 100
+
+#Compare ICCs 
+iccadj_m3
+iccunadj_m3
+pre2020icc
+post2020icc
+
+```
+
