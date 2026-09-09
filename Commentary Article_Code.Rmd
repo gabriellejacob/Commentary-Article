@@ -1,6 +1,5 @@
 ---
 title: "Supplementary Code_Commentary Article"
-author: "Gabrielle Jacob"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -51,6 +50,14 @@ datnz19 <- datnz19_1
 
 ### Creating Dataset for Unweighted Analysis for YRBSS 2017 AND 2019
 ```{r}
+
+# Note on variable terms for entire dataset 
+# Sidecode --> state name 
+# year --> year of survey 
+# raceid --> self-identified racial identity 
+# sexid -->  self-identified  sexual identity / sexual orientation 
+# sex -->  self-identified binary sex, did not rename it as gender as in the paper 
+
 
 #Selecting variables/columns of interest 
 datam19 <- datam19 %>% 
@@ -340,7 +347,7 @@ yrbsmiss$y.miss = ifelse(is.na(yrbsmiss$considered_suicide), 1, 0)
 colnames(yrbsmiss)
 table(yrbsmiss$y.miss) 
 
-#Running logisic regression to see if covariates can explain the missingness
+#Running logistic regression to see if covariates can explain the missingness
 glm1 <- glm(y.miss ~ sex + raceid + sexid, data = yrbsmiss, family = binomial(link = "logit"))
 
 summ(glm1, exp = TRUE)
@@ -357,7 +364,7 @@ yrbsmiss$sex_m <- as.numeric(is.na(yrbsmiss$sex))
 yrbsmiss$sexid_m <- as.numeric(is.na(yrbsmiss$sexid))
 
 
-#Running logisic regression to see if the other variables can explain the missingness
+#Running logistic regression to see if the other variables can explain the missingness
 glm2 <- glm(raceid_m ~ sex + sexid + considered_suicide, data = yrbsmiss, family = binomial(link = "logit"))
 glm2
 
@@ -386,8 +393,6 @@ head(yrbs_imputted)
 
 #Save file 
 saveRDS(yrbs_imputted, file = "yrbs_imputted.rds")
-
-#Going to create a dataset with a random sample of 520,000 to check diagnostics 
 
 #Quality check --> seems to be good
 plot(yrbs_imputted)
@@ -434,7 +439,7 @@ icc1
 #unadjusted ICC
 mean(0.1019387, 0.10180940, 0994824, 0.102079, 0.1017482)*100
 
-#Fixed effects 
+#Fixed effects --> code from Merchant. et al
  
  m_2 <- with(yrbs_imputted2_m, 
                glmmTMB(considered_suicide ~  1 +  prepost2020 + ( 1 | sex:raceid:sexid), data = environment (), family=binomial(link='logit')))
@@ -447,7 +452,7 @@ icc2
 #unadjusted ICC
 mean(.1008932, 0.1007225, 0.09838583, 0.1010178, 0.1005722)*100
 
-#Random effects model 
+#Random effects model --> code from Merchant. et al
 
  m_3 <- with(yrbs_imputted2_m, 
                glmmTMB(considered_suicide ~ 1 +  prepost2020 + ( prepost2020| sex:raceid:sexid), data = environment (), family=binomial(link='logit')))
@@ -466,7 +471,8 @@ iccunadj_m3 <- mean(0.1010567, 0.1006761, 0.09898668, 0.1011461, 0.1006553)*100
 ((.11 - .10 )/ .10)*100
 
 
-#Get variance to calculate year specific ICC
+#Get variance to calculate year specific ICC based on the equations provided
+#in Supplementary Materials of article 
 
 m3var <- sapply(m_3$analyses, get_variance)
 
