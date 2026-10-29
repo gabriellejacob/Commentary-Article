@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Jacob"
+  given-names: "Gabrielle"
+  orcid: "https://orcid.org/0000-0002-5640-4587"
+title: "The Intersectional Compass: The Purpose and Future of MAIHDA"
+version: 0.1.0
+doi: 10.5281/zenodo.23770982
+date-released: 2026-10-29
+url: "https://doi.org/10.5281/zenodo.23770982"
