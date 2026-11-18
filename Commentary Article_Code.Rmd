@@ -123,6 +123,11 @@ datuz <- datuz1
 #Saving datasets 
 saveRDS(bind_rows(datad, dateh, datil, datmp, datqt, datuz), file = "yrbs_raw_bound.rds")
 
+#How to read in data if you don't want to run entire data cleaning again 
+#[name] <- readRDS("yrbs_raw_bound.rds")
+#the saved rds doesnt align with the code below but code can be modified so that 
+#the next steps are easier when using rds file 
+
 
 ```
 
@@ -142,7 +147,6 @@ datil <- datil %>%
 
 datmp <- datmp %>% 
   select(sitecode, year, race7, sexid, q26, sex)
-
 
 datqt <- datqt %>% 
   select(sitecode, year, race7, sexid, q26, sex)
@@ -191,6 +195,9 @@ str(yrbs)
 
 saveRDS(yrbs, file = "yrbs_preimputation.rds")
 
+#How to read in data if you don't want to run entire data cleaning again 
+#yrbs <- readRDS("yrbs_preimputation.rds")
+
 ```
 
 ## Missing Data
@@ -199,6 +206,8 @@ saveRDS(yrbs, file = "yrbs_preimputation.rds")
 ```{r}
 
 #Filtering by year to check sample size and distribution for each year 
+
+#if utilized rds - be careful as the analyses below utilize pre-combined dataset 
 
 #2017 
 yrbs17 <- yrbs1719 %>% 
@@ -233,6 +242,8 @@ yrbs21 %>%
     complete = sum(complete),
     across(c(considered_suicide, sex, raceid, sexid), ~ sum(is.na(.x))))
 
+
+#Analysis from here is aligned with rds
 #Total sample
 yrbs %>% 
   mutate(complete = complete.cases(yrbs)) %>% 
@@ -273,6 +284,8 @@ yrbs_check
 
 sum(yrbs_check$complete) #complete observations: 377362
 sum(yrbs_check$obs_state) #total observations: 520117
+
+#Missing data 
 sum(yrbs_check$considered_suicide) #68636
 sum(yrbs_check$sex) #5569 - differs
 sum(yrbs_check$raceid) #15013 - differs
@@ -417,8 +430,8 @@ round(prop.table(table(yrbs$considered_suicide, yrbs$raceid)), digits = 2)
 round(prop.table(table(complete(yrbs_imputted, "long")$considered_suicide,  complete(yrbs_imputted, "long")$sex)), digits = 2)
 round(prop.table(table(yrbs$considered_suicide, yrbs$sex)), digits = 2)
 
-yrbs_imputted <- readRDS("yrbs_imputted.rds")
-
+#How to read in data if you don't want to run MICE again 
+#yrbs_imputted <- readRDS("yrbs_imputted.rds")
 
 ```
 
@@ -438,6 +451,14 @@ icc1
 
 #unadjusted ICC
 mean(0.1019387, 0.10180940, 0994824, 0.102079, 0.1017482)*100
+
+#Creating the pre and post 2020 variable for subsequent analyses 
+yrbs_imputted2 <- complete(yrbs_imputted, action='long', include=TRUE)
+
+yrbs_imputted2 <- yrbs_imputted2 %>% 
+  mutate(prepost2020 = if_else(year <= 2019, "pre2020", "post2020"))
+
+yrbs_imputted2_m <- as.mids(yrbs_imputted2)
 
 #Fixed effects --> code from Merchant. et al
  
@@ -467,7 +488,7 @@ iccadj_m3 <- mean(0.1010607, 0.1006816, 0.0989893, 0.10115, .1006593)*100
 iccunadj_m3 <- mean(0.1010567, 0.1006761, 0.09898668, 0.1011461, 0.1006553)*100
 
 
-#Crude Relative bias
+#Crude Relative bias of MCAR and MAR specified VPCs 
 ((.11 - .10 )/ .10)*100
 
 
@@ -475,9 +496,9 @@ iccunadj_m3 <- mean(0.1010567, 0.1006761, 0.09898668, 0.1011461, 0.1006553)*100
 #in Supplementary Materials of article 
 
 m3var <- sapply(m_3$analyses, get_variance)
+m3var
 
 #Calculate mean of the imputed values 
-var.residual <- mean(3.289868, 3.289868, 3.289868, 3.289868, 3.289868) 
 
 #rho 
 cor.slope_intercept <- mean(-0.2186674, -0.2405494, -0.1253853, -0.1742017, -0.2369491)
@@ -489,15 +510,25 @@ var.intercept <- mean(0.3810894, 0.3808541, 0.3655358, 0.3777736, 0.3805615)
 var.slope <- mean (0.007185732, 0.00660776, 0.006515971, 0.005925384, 0.006718819)
 
 #Obtain covariance 
-#rho * sd(var.slope) + sd(var.intercept)
-#to get standard deviation take the square root
+
+#Equation for covariance
+# rho (correlation) = covariance / sd(x) * sd(y)
+#  sd(x) * sd(y) * rho = covariance 
+#to get standard deviation take the square root of the variance 
+
+#rho * sqrt(var.slope) * sqrt(var.intercept)
 covariance <- cor.slope_intercept * sqrt(var.slope) * sqrt(var.intercept)
 
+#Equation 3.3 in Supplemental Material:
 #Calculate unexplained between-stratum variance
 var_unex <- var.slope + covariance + var.intercept
 
 #calculate year specific ICC
+
+#Equation 3.4 in Supplemental Material 
 post2020icc <- (var_unex / (var_unex + 3.29))*100
+
+#Equation 1.3 in Supplemental Material
 pre2020icc <- (var.intercept / (var.intercept + 3.29))* 100
 
 #Compare ICCs 
